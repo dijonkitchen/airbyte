@@ -30,6 +30,7 @@ import { useCurrentWorkspace } from "services/workspaces/WorkspacesService";
 
 import calculateInitialCatalog from "./calculateInitialCatalog";
 import { validateCronExpression } from "./ScheduleField";
+import { validateCronFrequencyOneHourOrMore } from "./ScheduleField/validateCronExpression";
 
 export interface FormikConnectionFormValues {
   name?: string;
@@ -75,7 +76,15 @@ export function useDefaultTransformation(): OperationCreate {
   };
 }
 
-export const connectionValidationSchema = (mode: ConnectionFormMode) =>
+interface CreateConnectionValidationSchemaArgs {
+  allowSubOneHourCronExpressions: boolean;
+  mode: ConnectionFormMode;
+}
+
+export const createConnectionValidationSchema = ({
+  mode,
+  allowSubOneHourCronExpressions,
+}: CreateConnectionValidationSchemaArgs) =>
   yup
     .object({
       // The connection name during Editing is handled separately from the form
@@ -102,10 +111,17 @@ export const connectionValidationSchema = (mode: ConnectionFormMode) =>
             .object({
               cronExpression: yup
                 .string()
+                .trim()
                 .required("form.empty.error")
-                .test("validCron", "form.cronExpression.error", (expression) =>
+                .test("validCronSyntax", "form.cronExpression.error", (expression) =>
                   !expression ? false : validateCronExpression(expression)
-                ),
+                )
+                .test("validCronFrequency", "form.cronExpression.underOneHourNotAllowed", (expression) => {
+                  if (!expression) {
+                    return false;
+                  }
+                  return allowSubOneHourCronExpressions ? true : validateCronFrequencyOneHourOrMore(expression);
+                }),
               cronTimeZone: yup.string().required("form.empty.error"),
             })
             .defined("form.empty.error"),
