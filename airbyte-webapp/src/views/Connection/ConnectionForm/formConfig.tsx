@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useIntl } from "react-intl";
 import * as yup from "yup";
 
-import { DropDownRow } from "components";
+import { DropDownOptionDataItem } from "components/ui/DropDown";
 
 import { frequencyConfig } from "config/frequencyConfig";
 import { SyncSchema } from "core/domain/catalog";
@@ -24,11 +24,11 @@ import {
   SyncMode,
   WebBackendConnectionRead,
 } from "core/request/AirbyteClient";
+import { ConnectionFormMode, ConnectionOrPartialConnection } from "hooks/services/ConnectionForm/ConnectionFormService";
 import { ValuesProps } from "hooks/services/useConnectionHook";
 import { useCurrentWorkspace } from "services/workspaces/WorkspacesService";
 
 import calculateInitialCatalog from "./calculateInitialCatalog";
-import { ConnectionOrPartialConnection } from "./ConnectionForm";
 
 export interface FormikConnectionFormValues {
   name?: string;
@@ -74,93 +74,108 @@ export function useDefaultTransformation(): OperationCreate {
   };
 }
 
-export const connectionValidationSchema = yup
-  .object({
-    name: yup.string().required("form.empty.error"),
-    scheduleType: yup.string().oneOf([ConnectionScheduleType.manual, ConnectionScheduleType.basic]),
-    scheduleData: yup
-      .object({
-        basicSchedule: yup
-          .object({
-            units: yup.number().required("form.empty.error"),
-            timeUnit: yup.string().required("form.empty.error"),
-          })
-          .nullable()
-          .defined("form.empty.error"),
-      })
-      .nullable()
-      .defined("form.empty.error"),
-    namespaceDefinition: yup
-      .string()
-      .oneOf([
-        NamespaceDefinitionType.source,
-        NamespaceDefinitionType.destination,
-        NamespaceDefinitionType.customformat,
-      ])
-      .required("form.empty.error"),
-    namespaceFormat: yup.string().when("namespaceDefinition", {
-      is: NamespaceDefinitionType.customformat,
-      then: yup.string().required("form.empty.error"),
-    }),
-    prefix: yup.string(),
-    syncCatalog: yup.object({
-      streams: yup.array().of(
-        yup.object({
-          id: yup
-            .string()
-            // This is required to get rid of id fields we are using to detect stream for edition
-            .when("$isRequest", (isRequest: boolean, schema: yup.StringSchema) =>
-              isRequest ? schema.strip(true) : schema
-            ),
-          stream: yup.object(),
-          config: yup
-            .object({
-              selected: yup.boolean(),
-              syncMode: yup.string(),
-              destinationSyncMode: yup.string(),
-              primaryKey: yup.array().of(yup.array().of(yup.string())),
-              cursorField: yup.array().of(yup.string()).defined(),
-            })
-            .test({
-              name: "connectionSchema.config.validator",
-              // eslint-disable-next-line no-template-curly-in-string
-              message: "${path} is wrong",
-              test(value) {
-                if (!value.selected) {
-                  return true;
-                }
-                if (DestinationSyncMode.append_dedup === value.destinationSyncMode) {
-                  // it's possible that primaryKey array is always present
-                  // however yup couldn't determine type correctly even with .required() call
-                  if (value.primaryKey?.length === 0) {
-                    return this.createError({
-                      message: "connectionForm.primaryKey.required",
-                      path: `schema.streams[${this.parent.id}].config.primaryKey`,
-                    });
-                  }
-                }
+export const connectionValidationSchema = (mode: ConnectionFormMode) =>
+  yup
+    .object({
+      // The connection name during Editing is handled separately from the form
+      name: mode === "create" ? yup.string().required("form.empty.error") : yup.string().notRequired(),
+      scheduleType: yup
+        .string()
+        .oneOf([ConnectionScheduleType.manual, ConnectionScheduleType.basic, ConnectionScheduleType.cron]),
+      scheduleData: yup.mixed().when("scheduleType", (scheduleType) => {
+        if (scheduleType === ConnectionScheduleType.basic) {
+          return yup.object({
+            basicSchedule: yup
+              .object({
+                units: yup.number().required("form.empty.error"),
+                timeUnit: yup.string().required("form.empty.error"),
+              })
+              .defined("form.empty.error"),
+          });
+        } else if (scheduleType === ConnectionScheduleType.manual) {
+          return yup.mixed().notRequired();
+        }
 
-                if (SyncMode.incremental === value.syncMode) {
-                  if (
-                    !this.parent.stream.sourceDefinedCursor &&
-                    // it's possible that cursorField array is always present
-                    // however yup couldn't determine type correctly even with .required() call
-                    value.cursorField?.length === 0
-                  ) {
-                    return this.createError({
-                      message: "connectionForm.cursorField.required",
-                      path: `schema.streams[${this.parent.id}].config.cursorField`,
-                    });
+        return yup.object({
+          cron: yup
+            .object({
+              cronExpression: yup.string().required("form.empty.error"),
+              cronTimeZone: yup.string().required("form.empty.error"),
+            })
+            .defined("form.empty.error"),
+        });
+      }),
+      namespaceDefinition: yup
+        .string()
+        .oneOf([
+          NamespaceDefinitionType.source,
+          NamespaceDefinitionType.destination,
+          NamespaceDefinitionType.customformat,
+        ])
+        .required("form.empty.error"),
+      namespaceFormat: yup.string().when("namespaceDefinition", {
+        is: NamespaceDefinitionType.customformat,
+        then: yup.string().trim().required("form.empty.error"),
+      }),
+      prefix: yup.string(),
+      syncCatalog: yup.object({
+        streams: yup.array().of(
+          yup.object({
+            id: yup
+              .string()
+              // This is required to get rid of id fields we are using to detect stream for edition
+              .when("$isRequest", (isRequest: boolean, schema: yup.StringSchema) =>
+                isRequest ? schema.strip(true) : schema
+              ),
+            stream: yup.object(),
+            config: yup
+              .object({
+                selected: yup.boolean(),
+                syncMode: yup.string(),
+                destinationSyncMode: yup.string(),
+                primaryKey: yup.array().of(yup.array().of(yup.string())),
+                cursorField: yup.array().of(yup.string()).defined(),
+              })
+              .test({
+                name: "connectionSchema.config.validator",
+                // eslint-disable-next-line no-template-curly-in-string
+                message: "${path} is wrong",
+                test(value) {
+                  if (!value.selected) {
+                    return true;
                   }
-                }
-                return true;
-              },
-            }),
-        })
-      ),
-    }),
-  })
-  .noUnknown();
+                  if (DestinationSyncMode.append_dedup === value.destinationSyncMode) {
+                    // it's possible that primaryKey array is always present
+                    // however yup couldn't determine type correctly even with .required() call
+                    if (value.primaryKey?.length === 0) {
+                      return this.createError({
+                        message: "connectionForm.primaryKey.required",
+                        path: `schema.streams[${this.parent.id}].config.primaryKey`,
+                      });
+                    }
+                  }
+
+                  if (SyncMode.incremental === value.syncMode) {
+                    if (
+                      !this.parent.stream.sourceDefinedCursor &&
+                      // it's possible that cursorField array is always present
+                      // however yup couldn't determine type correctly even with .required() call
+                      value.cursorField?.length === 0
+                    ) {
+                      return this.createError({
+                        message: "connectionForm.cursorField.required",
+                        path: `schema.streams[${this.parent.id}].config.cursorField`,
+                      });
+                    }
+                  }
+                  return true;
+                },
+              }),
+          })
+        ),
+      }),
+    })
+    .noUnknown();
 
 /**
  * Returns {@link Operation}[]
@@ -216,14 +231,14 @@ export const getInitialTransformations = (operations: OperationCreate[]): Operat
 
 export const getInitialNormalization = (
   operations?: Array<OperationRead | OperationCreate>,
-  isEditMode?: boolean
+  isNotCreateMode?: boolean
 ): NormalizationType => {
   const initialNormalization =
     operations?.find(isNormalizationTransformation)?.operatorConfiguration?.normalization?.option;
 
   return initialNormalization
     ? NormalizationType[initialNormalization]
-    : isEditMode
+    : isNotCreateMode
     ? NormalizationType.raw
     : NormalizationType.basic;
 };
@@ -231,23 +246,32 @@ export const getInitialNormalization = (
 export const useInitialValues = (
   connection: ConnectionOrPartialConnection,
   destDefinition: DestinationDefinitionSpecificationRead,
-  isEditMode?: boolean
+  isNotCreateMode?: boolean
 ): FormikConnectionFormValues => {
   const initialSchema = useMemo(
     () =>
-      calculateInitialCatalog(connection.syncCatalog, destDefinition?.supportedDestinationSyncModes || [], isEditMode),
-    [connection.syncCatalog, destDefinition, isEditMode]
+      calculateInitialCatalog(
+        connection.syncCatalog,
+        destDefinition?.supportedDestinationSyncModes || [],
+        isNotCreateMode
+      ),
+    [connection.syncCatalog, destDefinition, isNotCreateMode]
   );
 
   return useMemo(() => {
     const initialValues: FormikConnectionFormValues = {
-      name: connection.name ?? `${connection.source.name} <> ${connection.destination.name}`,
       syncCatalog: initialSchema,
+      scheduleType: connection.connectionId ? connection.scheduleType : ConnectionScheduleType.basic,
       scheduleData: connection.connectionId ? connection.scheduleData ?? null : DEFAULT_SCHEDULE,
       prefix: connection.prefix || "",
       namespaceDefinition: connection.namespaceDefinition || NamespaceDefinitionType.source,
       namespaceFormat: connection.namespaceFormat ?? SOURCE_NAMESPACE_TAG,
     };
+
+    // Is Create Mode
+    if (!isNotCreateMode) {
+      initialValues.name = connection.name ?? `${connection.source.name} <> ${connection.destination.name}`;
+    }
 
     const operations = connection.operations ?? [];
 
@@ -256,7 +280,7 @@ export const useInitialValues = (
     }
 
     if (destDefinition.supportsNormalization) {
-      initialValues.normalization = getInitialNormalization(operations, isEditMode);
+      initialValues.normalization = getInitialNormalization(operations, isNotCreateMode);
     }
 
     return initialValues;
@@ -269,17 +293,18 @@ export const useInitialValues = (
     connection.operations,
     connection.prefix,
     connection.scheduleData,
+    connection.scheduleType,
     connection.source.name,
     destDefinition.supportsDbt,
     destDefinition.supportsNormalization,
     initialSchema,
-    isEditMode,
+    isNotCreateMode,
   ]);
 };
 
 export const useFrequencyDropdownData = (
   additionalFrequency: WebBackendConnectionRead["scheduleData"]
-): DropDownRow.IDataItem[] => {
+): DropDownOptionDataItem[] => {
   const { formatMessage } = useIntl();
 
   return useMemo(() => {
@@ -295,16 +320,34 @@ export const useFrequencyDropdownData = (
       }
     }
 
-    return frequencies.map((frequency) => ({
+    const basicFrequencies = frequencies.map((frequency) => ({
       value: frequency,
-      label: frequency
-        ? formatMessage(
-            {
-              id: `form.every.${frequency.timeUnit}`,
-            },
-            { value: frequency.units }
-          )
-        : formatMessage({ id: "frequency.manual" }),
+      label: formatMessage(
+        {
+          id: `form.every.${frequency.timeUnit}`,
+        },
+        { value: frequency.units }
+      ),
     }));
+
+    // Add Manual and Custom to the frequencies list
+    const customFrequency = formatMessage({
+      id: "frequency.cron",
+    });
+    const manualFrequency = formatMessage({
+      id: "frequency.manual",
+    });
+    const otherFrequencies = [
+      {
+        label: manualFrequency,
+        value: manualFrequency.toLowerCase(),
+      },
+      {
+        label: customFrequency,
+        value: customFrequency.toLowerCase(),
+      },
+    ];
+
+    return [...otherFrequencies, ...basicFrequencies];
   }, [formatMessage, additionalFrequency]);
 };

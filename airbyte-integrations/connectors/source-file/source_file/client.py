@@ -263,6 +263,10 @@ class Client:
             builder.add_object(json.load(fp))
 
         result = builder.to_schema()
+        if "items" in result:
+            # this means we have a json list e.g. [{...}, {...}]
+            # but need to emit schema of an inside dict
+            result = result["items"]
         result["$schema"] = "http://json-schema.org/draft-07/schema#"
         return result
 
@@ -313,19 +317,24 @@ class Client:
             logger.error(error_msg)
             raise ConfigurationError(error_msg) from err
 
-        reader_options = {**self._reader_options}
-        if self._reader_format == "csv":
-            reader_options["chunksize"] = self.CSV_CHUNK_SIZE
-            if skip_data:
-                reader_options["nrows"] = 0
-                reader_options["index_col"] = 0
 
-            yield from reader(fp, **reader_options)
-        elif self._reader_options == "excel_binary":
-            reader_options["engine"] = "pyxlsb"
-            yield from reader(fp, **reader_options)
-        else:
-            yield reader(fp, **reader_options)
+        reader_options = {**self._reader_options}
+        try:
+            if self._reader_format == "csv":
+                reader_options["chunksize"] = self.CSV_CHUNK_SIZE
+                if skip_data:
+                    reader_options["nrows"] = 0
+                    reader_options["index_col"] = 0
+                yield from reader(fp, **reader_options)
+            elif self._reader_options == "excel_binary":
+                reader_options["engine"] = "pyxlsb"
+                yield from reader(fp, **reader_options)
+            else:
+                yield reader(fp, **reader_options)
+        except UnicodeDecodeError as err:
+            error_msg = f"File {fp} can't be parsed with reader of chosen type ({self._reader_format})\n{traceback.format_exc()}"
+            logger.error(error_msg)
+            raise ConfigurationError(error_msg) from err
 
     @staticmethod
     def dtype_to_json_type(current_type: str, dtype) -> str:
