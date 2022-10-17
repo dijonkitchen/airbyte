@@ -1,52 +1,22 @@
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, FieldProps, Form, Formik } from "formik";
-import React from "react";
+import React, { useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
-// import styled from "styled-components";
 import * as yup from "yup";
 
 import { Label, LabeledSwitch } from "components";
 import { Row, Cell } from "components/SimpleTableComponents";
 import { Button } from "components/ui/Button";
 import { Input } from "components/ui/Input";
+import { Text } from "components/ui/Text";
 import { Tooltip } from "components/ui/Tooltip";
 
 import { WebhookPayload } from "hooks/services/useWorkspace";
 import { equal } from "utils/objects";
 
-// const Text = styled.div`
-//   font-style: normal;
-//   font-weight: normal;
-//   font-size: 13px;
-//   line-height: 150%;
-//   padding-bottom: 5px;
-// `;
-
-// const InputRow = styled(Row)`
-//   height: auto;
-//   margin-bottom: 40px;
-// `;
-
-// const Message = styled(Text)`
-//   margin: -40px 0 21px;
-//   padding: 0;
-//   color: ${({ theme }) => theme.greyColor40};
-// `;
-
-// const FeedbackCell = styled(Cell)`
-//   &:last-child {
-//     text-align: left;
-//   }
-//   padding-left: 11px;
-// `;
-
-// const Success = styled.div`
-//   font-size: 13px;
-//   color: ${({ theme }) => theme.successColor};
-// `;
-//
-// const Error = styled(Success)`
-//   color: ${({ theme }) => theme.dangerColor};
-// `;
+import DocsIcon from "../../../../../views/layout/SideBar/components/DocsIcon";
+import styles from "./WebHookForm.module.scss";
 
 const webhookValidationSchema = yup.object().shape({
   webhook: yup.string().url("form.url.error"),
@@ -63,13 +33,10 @@ interface WebHookFormProps {
 }
 
 const WebHookForm: React.FC<WebHookFormProps> = ({ webhook, onSubmit, successMessage, errorMessage, onTest }) => {
+  const [webhookViewGuide, setWebhookViewGuide] = useState(false);
   const { formatMessage } = useIntl();
 
   const feedBackBlock = (dirty: boolean, isSubmitting: boolean, webhook?: string) => {
-    console.log("isSubmitting", isSubmitting);
-    console.log("webhook", webhook);
-    console.log("dirty", dirty);
-
     if (successMessage) {
       return <div>{successMessage}</div>;
     }
@@ -89,6 +56,42 @@ const WebHookForm: React.FC<WebHookFormProps> = ({ webhook, onSubmit, successMes
     return null;
   };
 
+  const webhookGuide = (
+    <div className={styles.webhookGuide}>
+      <div className={styles.webhookGuideTitle}>
+        <Text as="h5">How to get notification the way you want with your webhook URL?</Text>
+        <div>
+          <Button type="button" variant="clear" onClick={() => setWebhookViewGuide(false)}>
+            <FontAwesomeIcon className={styles.crossIcon} icon={faXmark} />
+          </Button>
+        </div>
+      </div>
+      <ul>
+        <li>
+          <a className={styles.webhookGuideLink} href="/#">
+            <DocsIcon />
+            <Text className={styles.text} size="lg">
+              Configure Sync notifications
+            </Text>
+          </a>
+        </li>
+        <li>
+          <a className={styles.webhookGuideLink} href="/#">
+            <DocsIcon />
+            <Text className={styles.text} size="lg">
+              Configure a Slack Notifications Webhook
+            </Text>
+          </a>
+        </li>
+      </ul>
+      <img
+        className={styles.webhookGuideImg}
+        alt="Need help with Webhook URL?"
+        src="/images/octavia/webhook-guide.png"
+      />
+    </div>
+  );
+
   return (
     <Formik
       initialValues={webhook}
@@ -104,19 +107,39 @@ const WebHookForm: React.FC<WebHookFormProps> = ({ webhook, onSubmit, successMes
         }
       }}
     >
-      {({ isSubmitting, initialValues, dirty, errors }) => (
+      {({ isSubmitting, initialValues, dirty, errors, values }) => (
         <Form>
-          <Label
-            error={!!errors.webhook}
-            message={!!errors.webhook && <FormattedMessage id={errors.webhook} defaultMessage={errors.webhook} />}
-          >
-            <FormattedMessage id="settings.webhookTitle" />
-          </Label>
-          {/* <Text> */}
-          {/*   <FormattedMessage id="settings.webhookDescription" /> */}
-          {/* </Text> */}
+          {webhookViewGuide ? webhookGuide : null}
           <Row>
-            <Cell flex={3}>
+            <Cell>
+              <Label
+                error={!!errors.webhook}
+                message={!!errors.webhook && <FormattedMessage id={errors.webhook} defaultMessage={errors.webhook} />}
+              >
+                <FormattedMessage id="settings.webhookTitle" />
+              </Label>
+            </Cell>
+            <Cell className={styles.webhookGuideButtonSection}>
+              {!webhookViewGuide ? (
+                <>
+                  <Button
+                    className={styles.webhookGuideButton}
+                    variant="clear"
+                    onClick={() => setWebhookViewGuide(true)}
+                  >
+                    Need help with Webhook URL?
+                  </Button>
+                  <img
+                    className={styles.webhookGuideButtonImg}
+                    alt="Need help with Webhook URL?"
+                    src="/images/octavia/webhook-guide.png"
+                  />
+                </>
+              ) : null}
+            </Cell>
+          </Row>
+          <Row className={styles.webhookRow}>
+            <Cell>
               <Field name="webhook">
                 {({ field, meta }: FieldProps<string>) => (
                   <Input
@@ -129,13 +152,18 @@ const WebHookForm: React.FC<WebHookFormProps> = ({ webhook, onSubmit, successMes
                 )}
               </Field>
             </Cell>
-            {/* <Cell>{feedBackBlock(dirty, isSubmitting, initialValues.webhook)}</Cell> */}
             <Cell>
               <Tooltip
+                className={styles.tooltip}
                 placement="top"
-                disabled={!!initialValues.webhook || !!errors.webhook}
                 control={
-                  <Button isLoading={isSubmitting} variant="secondary" type="submit">
+                  <Button
+                    type="button"
+                    isLoading={isSubmitting}
+                    variant="secondary"
+                    disabled={!values.webhook || !!errors.webhook}
+                    onClick={() => onTest(values)}
+                  >
                     <FormattedMessage id="settings.test" />
                   </Button>
                 }
@@ -145,13 +173,9 @@ const WebHookForm: React.FC<WebHookFormProps> = ({ webhook, onSubmit, successMes
             </Cell>
             {feedBackBlock(dirty, isSubmitting, initialValues.webhook)}
           </Row>
-          {/* {initialValues.webhook ? ( */}
-          {/*   <Text> */}
-          {/*     <FormattedMessage id="settings.webhookTestText" /> */}
-          {/*   </Text> */}
-          {/* ) : null} */}
-          <Row>
-            <Cell flex={1}>
+          <Label>Notify me:</Label>
+          <Row className={styles.notificationRow}>
+            <Cell className={styles.notificationCell}>
               <Field name="sendOnFailure">
                 {({ field }: FieldProps<boolean>) => (
                   <LabeledSwitch
@@ -162,8 +186,6 @@ const WebHookForm: React.FC<WebHookFormProps> = ({ webhook, onSubmit, successMes
                   />
                 )}
               </Field>
-            </Cell>
-            <Cell flex={1}>
               <Field name="sendOnSuccess">
                 {({ field }: FieldProps<boolean>) => (
                   <LabeledSwitch
@@ -176,9 +198,13 @@ const WebHookForm: React.FC<WebHookFormProps> = ({ webhook, onSubmit, successMes
               </Field>
             </Cell>
           </Row>
-          <Button isLoading={isSubmitting} type="submit">
-            <FormattedMessage id="form.saveChanges" />
-          </Button>
+          <Row>
+            <Cell className={styles.actionsCell}>
+              <Button isLoading={isSubmitting} type="submit">
+                <FormattedMessage id="form.saveChanges" />
+              </Button>
+            </Cell>
+          </Row>
         </Form>
       )}
     </Formik>

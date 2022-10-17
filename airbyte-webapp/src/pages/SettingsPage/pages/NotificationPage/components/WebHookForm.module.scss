@@ -1,0 +1,91 @@
+@use "../../../../../scss/colors";
+@use "../../../../../scss/variables";
+
+.tooltip {
+  margin-top: -#{variables.$spacing-md};
+}
+
+.webhookGuideButtonSection {
+  position: relative;
+
+  .webhookGuideButton {
+    color: colors.$blue;
+    text-decoration: underline;
+    padding-left: 0;
+    padding-right: 0;
+
+    &:hover {
+      color: colors.$blue;
+    }
+  }
+
+  .webhookGuideButtonImg {
+    position: absolute;
+    bottom: 0;
+    width: 38px;
+    height: 45px;
+    margin-left: 10px;
+  }
+}
+
+.webhookGuide {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: variables.$spacing-xl;
+  margin-bottom: variables.$spacing-xl;
+  background-color: colors.$grey-50;
+  border-radius: variables.$border-radius-xs;
+
+  .webhookGuideTitle {
+    display: flex;
+    justify-content: space-between;
+
+    .crossIcon {
+      font-size: 22px;
+    }
+  }
+
+  ul {
+    list-style-type: none;
+    list-style-position: inside;
+    margin: 0;
+    padding: variables.$spacing-md 0;
+  }
+
+  .webhookGuideLink {
+    display: inline-flex;
+    padding: variables.$spacing-sm 0;
+    color: colors.$blue;
+
+    .text {
+      color: colors.$blue;
+      padding-left: variables.$spacing-sm;
+    }
+  }
+
+  .webhookGuideImg {
+    position: absolute;
+    right: 50px;
+    bottom: -30px;
+    width: 106px;
+    height: 125px;
+  }
+}
+
+.webhookRow {
+  margin-bottom: variables.$spacing-xl;
+}
+
+.notificationRow {
+  margin-bottom: variables.$spacing-sm;
+
+  .notificationCell {
+    display: flex;
+  }
+}
+
+.actionsCell {
+  display: flex;
+  justify-content: end;
+}
