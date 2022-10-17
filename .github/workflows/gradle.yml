@@ -236,7 +236,7 @@ jobs:
         run: git --no-pager diff && test -z "$(git --no-pager diff)"
 
       - name: Publish Test Results
-        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.1
+        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.2
         id: connectors-test-results
         if: always()
         with:
@@ -533,7 +533,7 @@ jobs:
         run: SUB_BUILD=PLATFORM ./gradlew :airbyte-tests:automaticMigrationAcceptanceTest --scan -i
 
       - name: Publish Test Results
-        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.1
+        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.2
         if: always()
         with:
           junit_files: "/actions-runner/_work/airbyte/airbyte/*/build/test-results/*/*.xml\n/actions-runner/_work/airbyte/airbyte/*/*/build/test-results/*/*.xml"
@@ -692,7 +692,7 @@ jobs:
           CI=true IS_MINIKUBE=true ./tools/bin/acceptance_test_kube.sh
 
       - name: Publish Test Results
-        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.1
+        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.2
         if: always()
         with:
           junit_files: "/actions-runner/_work/airbyte/airbyte/*/build/test-results/*/*.xml\n/actions-runner/_work/airbyte/airbyte/*/*/build/test-results/*/*.xml"
@@ -872,7 +872,7 @@ jobs:
 #          CI=true IS_MINIKUBE=true ./tools/bin/acceptance_test_kube_helm.sh
 #
 #      - name: Publish Test Results
-#        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.1
+#        uses: cpdeethree/publish-unit-test-result-action/composite@v0.0.2
 #        if: always()
 #        with:
 #          junit_files: |
