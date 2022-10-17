@@ -174,7 +174,7 @@ export const ConnectionTransformationTab: React.FC<ConnectionTransformationTabPr
         {supportsDbt && (
           <CustomTransformationsCard operations={connection.operations} onSubmit={onSubmit} mode={mode} />
         )}
-        {supportsCloudDbtIntegration && <DbtCloudTransformationsCard />}
+        {supportsCloudDbtIntegration && <DbtCloudTransformationsCard connection={connection} />}
         {noSupportedTransformations && (
           <NoSupportedTransformationCard>
             <Text as="p" size="lg" centered>
